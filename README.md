@@ -1,5 +1,7 @@
 # Vault Rescue Transfer
 
+**[Download 0.3.0](https://github.com/Maveroll/vault-rescue-transfer/releases/tag/0.3.0) · [Установка на ноутбук: BRAT или ZIP](docs/install.md)**
+
 An Obsidian plugin project for exporting separate, read-only snapshots of diverged vaults from desktop and mobile devices to a receiving computer. The snapshots can then be compared and reconciled locally.
 
 Version 0.3.0 creates local snapshots on desktop or sends a vault through a transient HTTPS relay to a receiving computer. Files are checked with SHA-256. The relay does not write vault contents to disk. Mobile sending is not implemented yet.
@@ -65,4 +67,4 @@ TLS protects connections to the relay; this version does not provide end-to-end 
 
 `npm run check` checks TypeScript. `npm test` exercises copying, cancellation, source changes, corruption, and path/link guards in ignored `test-results/` fixtures. `npm run dev` watches source files and rebuilds the root `main.js`; run `npm run build` again to refresh the installable folder in `dist`.
 
-Minimum Obsidian version is conservatively set to 1.14.4, matching the API dependency. This version is marked desktop-only because local export uses Node filesystem APIs. A future mobile sender will require a separate compatible implementation. No public release has been published.
+Minimum Obsidian version is conservatively set to 1.14.4, matching the API dependency. This version is marked desktop-only because local export uses Node filesystem APIs. A future mobile sender will require a separate compatible implementation. The plugin is distributed through GitHub Releases; it is not listed in the Obsidian Community directory yet.
