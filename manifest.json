@@ -1,0 +1,9 @@
+{
+  "id": "vault-rescue-transfer",
+  "name": "Vault Rescue Transfer",
+  "version": "0.1.0",
+  "minAppVersion": "1.14.4",
+  "description": "Prepare vault snapshots for transfer and recovery. Preview: settings and local checks only.",
+  "author": "Maveroll",
+  "isDesktopOnly": false
+}
