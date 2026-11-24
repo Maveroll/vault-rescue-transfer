@@ -22,4 +22,8 @@ if (process.argv.includes('--watch')) {
   for (const file of ['main.js', 'manifest.json']) {
     await copyFile(file, `${output}/${file}`);
   }
+  for (const service of ['relay', 'receiver']) {
+    await esbuild.build({ entryPoints: [`src/${service}/main.ts`], outfile: `dist/${service}.cjs`,
+      bundle: true, platform: 'node', format: 'cjs', target: 'node22', logLevel: 'info' });
+  }
 }

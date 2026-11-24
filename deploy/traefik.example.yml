@@ -1,0 +1,20 @@
+# Merge these named entries into the existing dynamic configuration.
+# Replace relay.example.com and the backend address with your deployment values.
+http:
+  routers:
+    vault-rescue:
+      rule: Host(`relay.example.com`) && PathPrefix(`/vault-rescue/`)
+      entryPoints: [websecure]
+      service: vault-rescue
+      middlewares: [vault-rescue-strip]
+      tls:
+        certResolver: letsencrypt
+  middlewares:
+    vault-rescue-strip:
+      stripPrefix:
+        prefixes: [/vault-rescue]
+  services:
+    vault-rescue:
+      loadBalancer:
+        servers:
+          - url: http://127.0.0.1:8787

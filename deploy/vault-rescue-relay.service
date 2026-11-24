@@ -1,0 +1,17 @@
+[Unit]
+Description=Vault Rescue transient relay
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/vault-rescue-transfer
+ExecStart=/usr/bin/node --env-file=%h/vault-rescue-transfer/relay.env %h/vault-rescue-transfer/relay.cjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+LimitCORE=0
+MemoryMax=192M
+
+[Install]
+WantedBy=default.target

@@ -5,7 +5,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
-interface Entry { path: string; size: number; mtimeMs: number; ctimeMs: number; directory: boolean }
+export interface Entry { path: string; size: number; mtimeMs: number; ctimeMs: number; directory: boolean }
 interface FileRecord { path: string; size: number; sha256: string }
 export interface ExportOptions {
   source: string;
@@ -24,7 +24,7 @@ function inside(parent: string, child: string): boolean {
   return relative === '' || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative));
 }
 
-async function scan(root: string, excluded: Set<string>, signal?: AbortSignal): Promise<Entry[]> {
+export async function scan(root: string, excluded: Set<string>, signal?: AbortSignal): Promise<Entry[]> {
   const entries: Entry[] = [];
   async function walk(relative: string): Promise<void> {
     for (const name of (await fs.readdir(path.join(root, relative))).sort()) {
@@ -44,7 +44,7 @@ async function scan(root: string, excluded: Set<string>, signal?: AbortSignal): 
   return entries;
 }
 
-function sameInventory(a: Entry[], b: Entry[]): boolean {
+export function sameInventory(a: Entry[], b: Entry[]): boolean {
   // Directory timestamps can change because excluded workspace files are updated.
   const stable = (entries: Entry[]) => entries.map((e) => e.directory
     ? { path: e.path, directory: true }
@@ -52,7 +52,7 @@ function sameInventory(a: Entry[], b: Entry[]): boolean {
   return JSON.stringify(stable(a)) === JSON.stringify(stable(b));
 }
 
-async function digest(file: string, signal?: AbortSignal): Promise<string> {
+export async function digest(file: string, signal?: AbortSignal): Promise<string> {
   const hash = createHash('sha256');
   for await (const chunk of createReadStream(file, { signal })) {
     check(signal);

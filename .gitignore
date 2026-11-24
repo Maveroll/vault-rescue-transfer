@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 .env.*
+relay.env
 !.env.example
 coverage/
 test-results/

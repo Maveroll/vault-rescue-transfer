@@ -2,7 +2,7 @@
 
 An Obsidian plugin project for exporting separate, read-only snapshots of diverged vaults from desktop and mobile devices to a receiving computer. The snapshots can then be compared and reconciled locally.
 
-Version 0.2.0 creates local snapshots on desktop and checks file contents with SHA-256. Network transfer, relay, and receiver are not implemented. The planned network path is device → transient relay → receiving computer, without retaining vault contents on the relay.
+Version 0.3.0 creates local snapshots on desktop or sends a vault through a transient HTTPS relay to a receiving computer. Files are checked with SHA-256. The relay does not write vault contents to disk. Mobile sending is not implemented yet.
 
 ## Recovery principles
 
@@ -20,7 +20,7 @@ The repository will hold the plugin source, build configuration, and release ass
 - [Transfer requirements](docs/protocol.md) — inventory, file integrity, and resume behavior (Russian).
 - [Relay deployment requirements](deploy/README.md) — hosting constraints and preflight checks (Russian).
 
-The network transfer documents describe planned behavior. Local export is available as described below.
+Local export and desktop network transfer are available. Resume after interruption is still planned; version 0.3.0 starts a new snapshot on each attempt.
 
 ## Build and install the preview
 
@@ -44,7 +44,24 @@ Hidden files, attachments, and empty directories are included. Only `workspace.j
 
 Files are streamed to temporary files, checked, and then renamed into the snapshot. A final pass rechecks the source inventory, source hashes, and copied hashes. The source must remain unchanged; this is not an atomic filesystem snapshot. Cancellation or an error leaves an incomplete/failed/cancelled report and any partial files for inspection. Restart creates a new snapshot; resume is not yet implemented. No source files are deleted or modified by export.
 
-The relay URL and **Проверить готовность** still only check address syntax; they do not contact a server. They are not required for local export. No session code is requested or stored.
+## Send from a laptop
+
+1. Deploy `dist/relay.cjs` behind HTTPS following [deployment instructions](deploy/README.md).
+2. On the receiving computer (Node.js 22+), run:
+
+```sh
+node dist/receiver.cjs --relay https://relay.example.com/vault-rescue --destination /absolute/snapshot/folder --key-file /private/path/admin.key
+```
+
+3. Copy the one-session connection code shown by the receiver. Keep its window open.
+4. On the sending computer, save the relay URL in plugin settings and select **Отправить снимок**. Paste the full connection code, pause editing and synchronization, and start.
+5. Wait for the receiver's verification confirmation. The received snapshot has `vault/` and `snapshot.json`, like a local snapshot.
+
+Closing the sending dialog cancels the transfer. After a failure, restart the receiver for a new code and a new snapshot directory. No source files are modified by sending. The connection code is not saved in plugin settings. The receiver's administrative key must stay outside the repository and must not be copied to sending devices.
+
+TLS protects connections to the relay; this version does not provide end-to-end encryption against the relay operator. Use a trusted server. Only one chunk is in flight per session, with a 192 KiB binary chunk size. The relay waits for the receiving computer's acknowledgement before accepting another chunk. Receiver checks reject unsupported Windows names, case collisions, path traversal, and bad hashes.
+
+**Проверить готовность** still checks only address syntax. The relay address is not needed for local export.
 
 `npm run check` checks TypeScript. `npm test` exercises copying, cancellation, source changes, corruption, and path/link guards in ignored `test-results/` fixtures. `npm run dev` watches source files and rebuilds the root `main.js`; run `npm run build` again to refresh the installable folder in `dist`.
 

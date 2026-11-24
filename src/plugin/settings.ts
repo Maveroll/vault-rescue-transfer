@@ -28,7 +28,7 @@ export class TransferSettingTab extends PluginSettingTab {
   display(): void {
     this.containerEl.empty();
     this.containerEl.createEl('p', {
-      text: 'Доступен локальный снимок на компьютере с проверкой SHA-256. Передача через сервер ещё не реализована.',
+      text: 'Локальный снимок и передача на другой компьютер через ретранслятор с проверкой SHA-256. Обе стороны должны оставаться включёнными.',
     });
     let folder = this.plugin.settings.snapshotFolder;
     new Setting(this.containerEl)
@@ -44,6 +44,10 @@ export class TransferSettingTab extends PluginSettingTab {
       .setDesc('Используется сохранённый путь. Закрытие окна экспорта отменяет операцию.')
       .addButton((button) => button.setButtonText('Создать снимок').onClick(() => this.plugin.openSnapshotDialog()));
     let draft = this.plugin.settings.relayUrl;
+    new Setting(this.containerEl)
+      .setName('Передача на компьютер')
+      .setDesc('Сначала сохраните адрес сервера ниже. Код подключения выдаёт приёмник на компьютере.')
+      .addButton(button => button.setButtonText('Отправить снимок').onClick(() => this.plugin.openSendDialog()));
     new Setting(this.containerEl)
       .setName('Адрес ретранслятора')
       .setDesc('Сохраняется в настройках этого хранилища. Не добавляйте код подключения в адрес.')
