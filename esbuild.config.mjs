@@ -4,7 +4,7 @@ import { copyFile, mkdir } from 'node:fs/promises';
 const options = {
   entryPoints: ['src/plugin/main.ts'],
   bundle: true,
-  external: ['obsidian'],
+  external: ['obsidian', 'node:*'],
   format: 'cjs',
   platform: 'browser',
   target: 'es2020',

@@ -3,6 +3,7 @@ import type VaultRescueTransferPlugin from './main';
 
 export interface TransferSettings {
   relayUrl: string;
+  snapshotFolder: string;
 }
 
 export function validateRelayUrl(value: string): string | null {
@@ -27,8 +28,21 @@ export class TransferSettingTab extends PluginSettingTab {
   display(): void {
     this.containerEl.empty();
     this.containerEl.createEl('p', {
-      text: 'Предварительная версия: доступны настройки и локальная проверка. Передача файлов ещё не реализована.',
+      text: 'Доступен локальный снимок на компьютере с проверкой SHA-256. Передача через сервер ещё не реализована.',
     });
+    let folder = this.plugin.settings.snapshotFolder;
+    new Setting(this.containerEl)
+      .setName('Папка снимков')
+      .setDesc('Абсолютный путь вне исходного хранилища. Каждый экспорт создаёт новый каталог.')
+      .addText((text) => text.setValue(folder).onChange((value) => { folder = value.trim(); }))
+      .addButton((button) => button.setButtonText('Сохранить').onClick(async () => {
+        try { await this.plugin.saveSnapshotFolder(folder); new Notice('Папка снимков сохранена.'); }
+        catch { new Notice('Не удалось сохранить папку снимков.'); }
+      }));
+    new Setting(this.containerEl)
+      .setName('Локальный экспорт')
+      .setDesc('Используется сохранённый путь. Закрытие окна экспорта отменяет операцию.')
+      .addButton((button) => button.setButtonText('Создать снимок').onClick(() => this.plugin.openSnapshotDialog()));
     let draft = this.plugin.settings.relayUrl;
     new Setting(this.containerEl)
       .setName('Адрес ретранслятора')
