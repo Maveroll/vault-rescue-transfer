@@ -13,3 +13,11 @@ The planned transfer path is device → transient relay → receiving computer. 
 - Require an explicit export action and show transfer progress and errors.
 
 The repository will hold the plugin source, build configuration, and release assets required for submission to the Obsidian Community directory. Server addresses, access tokens, vault contents, and personal backups must not be committed here.
+
+## Project documents
+
+- [Recovery workflow](docs/usage.md) — setup, transfer, interruptions, and verification (Russian).
+- [Transfer requirements](docs/protocol.md) — inventory, file integrity, and resume behavior (Russian).
+- [Relay deployment requirements](deploy/README.md) — hosting constraints and preflight checks (Russian).
+
+These documents describe the intended first version, not implemented features. There is no installable release or build command yet. Plugin metadata, dependency versions, and build configuration will be added alongside the first implementation so they can be validated together.
