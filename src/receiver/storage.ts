@@ -10,11 +10,58 @@ export class SnapshotReceiver {
   private payload = '';
   private names = new Set<string>();
   private directories = new Set(['']);
+  private reuseRoots: string[] = [];
   private active?: { handle: FileHandle; temporary: string; path: string; size: number; received: number; sha256: string; hash: Hash };
   private report = { formatVersion: 1, status: 'incomplete', source: '', startedAt: '', finishedAt: '',
     excluded: [] as string[], totalFiles: 0, totalBytes: 0, files: [] as { path: string; size: number; sha256: string }[],
     directories: [] as string[], error: '' };
   constructor(private destination: string) {}
+  private async findReusable(base: string, source: string): Promise<void> {
+    for (const entry of await fs.readdir(base, { withFileTypes: true })) {
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      const folder = path.join(base, entry.name);
+      try {
+        const metadata = path.join(folder, 'snapshot.json');
+        const stat = await fs.lstat(metadata);
+        if (!stat.isFile() || stat.isSymbolicLink() || stat.size > 32 * 1024 * 1024) continue;
+        const report = JSON.parse(await fs.readFile(metadata, 'utf8'));
+        if (report.formatVersion === 1 && report.source === source) this.reuseRoots.push(folder);
+      } catch { /* An unreadable or unfinished report is not a reusable snapshot. */ }
+    }
+  }
+  private async reuseFile(relative: string, size: number, sha256: string): Promise<boolean> {
+    for (const folder of this.reuseRoots) {
+      let candidate = folder;
+      try {
+        // Check every component: old snapshots must not redirect reads through junctions/symlinks.
+        const parts = ['vault', ...relative.split('/')];
+        for (let i = 0; i < parts.length; i++) {
+          candidate = path.join(candidate, parts[i]);
+          const stat = await fs.lstat(candidate);
+          if (stat.isSymbolicLink() || (i < parts.length - 1 ? !stat.isDirectory() : !stat.isFile() || stat.size !== size)) {
+            throw new Error('Not a reusable regular file');
+          }
+        }
+        if (await digest(candidate) !== sha256) continue;
+      } catch { continue; }
+      const temporary = path.join(this.directory, `.partial-${randomUUID()}`);
+      try {
+        await fs.copyFile(candidate, temporary, fs.constants.COPYFILE_EXCL);
+        if ((await fs.stat(temporary)).size !== size || await digest(temporary) !== sha256) continue;
+        await fs.rename(temporary, path.join(this.payload, relative));
+        await this.recordFile(relative, size, sha256);
+        return true;
+      } finally { await fs.unlink(temporary).catch(() => {}); }
+    }
+    return false;
+  }
+  private async recordFile(relative: string, size: number, sha256: string) {
+    this.report.files.push({ path: relative, size, sha256 });
+    this.report.totalFiles++;
+    this.report.totalBytes += size;
+    // Persist after each complete file, including when the process subsequently crashes.
+    await this.save();
+  }
   private async save() {
     const target = path.join(this.directory, 'snapshot.json');
     await fs.writeFile(`${target}.tmp`, JSON.stringify(this.report, null, 2));
@@ -42,6 +89,7 @@ export class SnapshotReceiver {
       if (!path.isAbsolute(this.destination)) throw new Error('Destination must be an absolute path');
       await fs.mkdir(this.destination, { recursive: true });
       const base = await fs.realpath(this.destination);
+      if (message.reuse === true) await this.findReusable(base, message.name);
       const label = message.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 60);
       this.directory = path.join(base, `${label}_${new Date().toISOString().replace(/[:.]/g, '-')}_${randomUUID().slice(0, 8)}`);
       await fs.mkdir(this.directory);
@@ -69,6 +117,7 @@ export class SnapshotReceiver {
           || typeof message.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(message.sha256)) throw new Error('Invalid file metadata');
         const disk = await fs.statfs(this.directory);
         if (disk.bavail * disk.bsize < message.size + 16 * 1024 * 1024) throw new Error('Insufficient disk space');
+        if (await this.reuseFile(relative, message.size, message.sha256)) return { ok: true, skip: true };
         const temporary = path.join(this.directory, `.partial-${randomUUID()}`);
         this.active = { handle: await fs.open(temporary, 'wx'), temporary, path: relative,
           size: message.size, received: 0, sha256: message.sha256, hash: createHash('sha256') };
@@ -98,10 +147,8 @@ export class SnapshotReceiver {
           throw new Error('File size or SHA-256 mismatch');
         }
         await fs.rename(file.temporary, path.join(this.payload, file.path));
-        this.report.files.push({ path: file.path, size: file.size, sha256: file.sha256 });
-        this.report.totalFiles++;
-        this.report.totalBytes += file.size;
         this.active = undefined;
+        await this.recordFile(file.path, file.size, file.sha256);
         return { ok: true };
       }
       case 'finish': {

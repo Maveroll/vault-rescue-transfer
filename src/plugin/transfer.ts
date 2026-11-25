@@ -18,7 +18,7 @@ export async function sendSnapshot(options: {
   try {
   const inventory = await scan(options.source, new Set(options.exclude), options.signal);
   const records: { path: string; sha256: string }[] = [];
-  await send({ type: 'start', protocol: PROTOCOL, name: path.basename(options.source), excluded: options.exclude });
+  await send({ type: 'start', protocol: PROTOCOL, name: path.basename(options.source), excluded: options.exclude, reuse: true });
   let bytes = 0;
   for (const entry of inventory) {
     options.signal?.throwIfAborted();
@@ -26,11 +26,15 @@ export async function sendSnapshot(options: {
     options.progress?.(`Отправка ${records.length + 1}: ${entry.path}`);
     const original = path.join(options.source, entry.path);
     const sha256 = await digest(original, options.signal);
-    await send({ type: 'file', path: entry.path, size: entry.size, sha256 });
-    for await (const chunk of createReadStream(original, { highWaterMark: CHUNK_SIZE, signal: options.signal })) {
-      await send({ type: 'chunk', data: (chunk as Buffer).toString('base64') });
+    const ready = await send({ type: 'file', path: entry.path, size: entry.size, sha256 });
+    if (ready.skip) {
+      options.progress?.(`Уже получен и проверен: ${entry.path}`);
+    } else {
+      for await (const chunk of createReadStream(original, { highWaterMark: CHUNK_SIZE, signal: options.signal })) {
+        await send({ type: 'chunk', data: (chunk as Buffer).toString('base64') });
+      }
+      await send({ type: 'end-file' });
     }
-    await send({ type: 'end-file' });
     records.push({ path: entry.path, sha256 });
     bytes += entry.size;
   }

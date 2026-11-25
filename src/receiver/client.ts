@@ -13,7 +13,7 @@ export async function receiveSnapshot(options: {
   try {
     while (true) {
       const response = await request<{ idle?: boolean; id: string; message: Message }>(options.relay,
-        `/sessions/${session.id}/poll`, session.receiverKey, undefined, options.signal);
+        `/sessions/${session.id}/poll`, session.receiverKey, undefined, options.signal, undefined, true);
       if (response.idle) {
         if (Date.now() - lastMessage > 15 * 60_000) throw new Error('Нет данных от отправителя 15 минут. Запустите приёмник заново.');
         continue;
@@ -21,7 +21,7 @@ export async function receiveSnapshot(options: {
       lastMessage = Date.now();
       try {
         const reply = await storage.accept(response.message);
-        await request(options.relay, `/sessions/${session.id}/ack`, session.receiverKey, { id: response.id, reply }, options.signal);
+        await request(options.relay, `/sessions/${session.id}/ack`, session.receiverKey, { id: response.id, reply }, options.signal, undefined, true);
         if (response.message.type === 'end-file') options.progress?.('Файл получен и проверен.');
         if (reply.directory) return reply.directory;
       } catch (error) {

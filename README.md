@@ -1,10 +1,10 @@
 # Vault Rescue Transfer
 
-**[Download 0.3.0](https://github.com/Maveroll/vault-rescue-transfer/releases/tag/0.3.0) · [Установка на ноутбук: BRAT или ZIP](docs/install.md)**
+**[Download 0.3.1](https://github.com/Maveroll/vault-rescue-transfer/releases/tag/0.3.1) · [Установка на ноутбук: BRAT или ZIP](docs/install.md)**
 
 An Obsidian plugin project for exporting separate, read-only snapshots of diverged vaults from desktop and mobile devices to a receiving computer. The snapshots can then be compared and reconciled locally.
 
-Version 0.3.0 creates local snapshots on desktop or sends a vault through a transient HTTPS relay to a receiving computer. Files are checked with SHA-256. The relay does not write vault contents to disk. Mobile sending is not implemented yet.
+Version 0.3.1 creates local snapshots on desktop or sends a vault through a transient HTTPS relay to a receiving computer. Files are checked with SHA-256. The relay does not write vault contents to disk. Mobile sending is not implemented yet.
 
 ## Recovery principles
 
@@ -22,7 +22,7 @@ The repository will hold the plugin source, build configuration, and release ass
 - [Transfer requirements](docs/protocol.md) — inventory, file integrity, and resume behavior (Russian).
 - [Relay deployment requirements](deploy/README.md) — hosting constraints and preflight checks (Russian).
 
-Local export and desktop network transfer are available. Resume after interruption is still planned; version 0.3.0 starts a new snapshot on each attempt.
+Local export and desktop network transfer are available. Version 0.3.1 reuses complete files from earlier snapshots in the same destination: matching source name, relative path, size and SHA-256 are required. Each attempt creates a fresh snapshot, so deleted files cannot leak into the result. Old snapshots (including 0.3.0) remain unchanged. Reused files are copied locally, requiring space for the new full snapshot.
 
 ## Build and install the preview
 
@@ -44,7 +44,7 @@ Copy the generated `dist/vault-rescue-transfer` folder into your vault's plugin 
 
 Hidden files, attachments, and empty directories are included. Only `workspace.json` and `workspace-mobile.json` in Obsidian's configuration directory are excluded because the running app changes them. Symbolic links and special files cause an explicit failure. The destination must not resolve inside the source vault.
 
-Files are streamed to temporary files, checked, and then renamed into the snapshot. A final pass rechecks the source inventory, source hashes, and copied hashes. The source must remain unchanged; this is not an atomic filesystem snapshot. Cancellation or an error leaves an incomplete/failed/cancelled report and any partial files for inspection. Restart creates a new snapshot; resume is not yet implemented. No source files are deleted or modified by export.
+Files are streamed to temporary files, checked, and then renamed into the snapshot. A final pass rechecks the source inventory, source hashes, and copied hashes. The source must remain unchanged; this is not an atomic filesystem snapshot. Cancellation or an error leaves an incomplete/failed/cancelled report and any partial files for inspection. Local export starts a new snapshot; network transfer can reuse previously received files. No source files are deleted or modified by export.
 
 ## Send from a laptop
 
@@ -59,7 +59,7 @@ node dist/receiver.cjs --relay https://relay.example.com/vault-rescue --destinat
 4. On the sending computer, save the relay URL in plugin settings and select **Отправить снимок**. Paste the full connection code, pause editing and synchronization, and start.
 5. Wait for the receiver's verification confirmation. The received snapshot has `vault/` and `snapshot.json`, like a local snapshot.
 
-Closing the sending dialog cancels the transfer. After a failure, restart the receiver for a new code and a new snapshot directory. No source files are modified by sending. The connection code is not saved in plugin settings. The receiver's administrative key must stay outside the repository and must not be copied to sending devices.
+Closing the sending dialog cancels the transfer. After a failure, restart the receiver with the same destination and send again with its new code. Verified matching files are copied locally instead of retransmitted; a partial file restarts from its beginning. Both sender and receiver must be updated to 0.3.1. Receiver polling and acknowledgements retry transient failures up to three times; update the relay too. Sleep, expired sessions and sender disconnections can still require manual restart. No source files are modified by sending. The connection code is not saved in plugin settings. The receiver's administrative key must stay outside the repository and must not be copied to sending devices.
 
 TLS protects connections to the relay; this version does not provide end-to-end encryption against the relay operator. Use a trusted server. Only one chunk is in flight per session, with a 192 KiB binary chunk size. The relay waits for the receiving computer's acknowledgement before accepting another chunk. Receiver checks reject unsupported Windows names, case collisions, path traversal, and bad hashes.
 

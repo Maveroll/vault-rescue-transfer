@@ -29,6 +29,7 @@ interface Pending { id: string; message: unknown; ready: boolean; response: Serv
 interface Connection {
   senderKey: string; receiverKey: string; touched: number;
   pending?: Pending; poll?: ServerResponse; pollTimer?: NodeJS.Timeout;
+  lastAck?: string;
 }
 
 export function createRelay(adminKey: string) {
@@ -44,7 +45,7 @@ export function createRelay(adminKey: string) {
     if (session.poll) json(session.poll, 410, { error: 'Session closed' });
   };
   const deliver = (session: Connection) => {
-    if (!session.poll || !session.pending || !session.pending.ready || session.pending.delivered) return;
+    if (!session.poll || !session.pending || !session.pending.ready) return;
     clearTimeout(session.pollTimer);
     session.pending.delivered = true;
     json(session.poll, 200, { id: session.pending.id, message: session.pending.message });
@@ -74,7 +75,7 @@ export function createRelay(adminKey: string) {
       if (!action && req.method === 'DELETE') { close(id); json(res, 200, {}); return; }
       if (action === 'cancel' && req.method === 'POST') { close(id); json(res, 200, {}); return; }
       if (action === 'poll' && req.method === 'GET') {
-        if (session.poll || session.pending?.delivered) { json(res, 409, {}); return; }
+        if (session.poll) { json(res, 409, {}); return; }
         session.poll = res;
         session.pollTimer = setTimeout(() => { if (session.poll === res) { session.poll = undefined; json(res, 200, { idle: true }); } }, 20_000);
         res.on('close', () => { if (session.poll === res) { clearTimeout(session.pollTimer); session.poll = undefined; } });
@@ -94,12 +95,14 @@ export function createRelay(adminKey: string) {
       }
       if (action === 'ack' && req.method === 'POST') {
         const ack = await body(req, 8192);
+        if (typeof ack.id === 'string' && ack.id === session.lastAck) { json(res, 200, {}); return; }
         if (!session.pending || !session.pending.delivered || ack.id !== session.pending.id || typeof ack.reply?.ok !== 'boolean') {
           json(res, 409, {}); return;
         }
         const pending = session.pending;
         clearTimeout(pending.timer);
         session.pending = undefined;
+        session.lastAck = ack.id;
         json(pending.response, 200, ack.reply);
         json(res, 200, {}); return;
       }
